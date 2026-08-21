@@ -26,7 +26,7 @@ The challenge requires the creative output to be produced **autonomously, with n
 | Schedule | Daily via **EventBridge Scheduled Rule**: `cron(0 22 * * ? *)` = 22:00 UTC = **06:00 Asia/Manila** (no DST, stable year-round) | Chosen to land at early local morning ("ready when you return"), not arbitrary 06:00 UTC |
 | "Today" / date computed as | Local calendar date in **Asia/Manila** (UTC+8), not UTC | Schedule already runs after local midnight, so this is always correct with no off-by-one risk |
 | On-demand generation | Separate public endpoint (API Gateway → Lambda), city selected from curated dropdown, output **ephemeral** — returned directly in the API response, never written to DynamoDB or S3 | Keeps the on-demand feature cleanly separable from the autonomous evidence trail (Q11); avoids a per-city DynamoDB schema and per-city static-page rebuild logic under deadline pressure |
-| On-demand abuse/cost guardrail | API Gateway (HTTP API) usage-plan throttling (e.g. 5 req/s, burst 10) **+** app-level cap: max 1 generation per city per rolling 24h, checked before calling Bedrock | Bounds worst-case daily Bedrock spend to at most (curated city count) calls, regardless of request volume; also thematically sensible — "today's poem" for a city shouldn't regenerate on every click |
+| On-demand abuse/cost guardrail | API Gateway (HTTP API) usage-plan throttling (e.g. 5 req/s, burst 10) **+** app-level cap: max 1 generation per city per rolling 24h, claimed via an atomic conditional DynamoDB write *before* calling Bedrock | Bounds worst-case daily Bedrock spend to at most (curated city count) calls, regardless of request volume, including under a concurrent burst (a plain get-then-put would let concurrent requests race past the check together); also thematically sensible — "today's poem" for a city shouldn't regenerate on every click |
 | On-demand UI framing | Explicitly separated section, labeled e.g. "Try it yourself (on-demand demo — not part of the autonomous archive)" | Removes any ambiguity for a judge about which output is the required autonomous evidence |
 | Text generation backend | **Amazon Bedrock, Amazon Nova Micro** | Amazon-owned model — no access-request step (AWS auto-enables serverless Amazon models since Oct 2025), instant on-demand inference in us-east-1; keeps the whole stack AWS-native for judging. Confirmed low deadline risk via research. |
 | Presentation | Static site: **S3 + CloudFront**, showing today's poem + scrollable archive (autonomous path only), plus the on-demand widget | Archive of past days is the strongest evidence of unattended, ongoing generation |
@@ -83,7 +83,8 @@ API Gateway (HTTP API, usage-plan throttled ~5 req/s / burst 10)
         │
         ▼
    Lambda B — on-demand handler (shares weather/prompt/Bedrock code with Lambda A)
-        │  - app-level cap: max 1 generation per city per rolling 24h
+        │  - atomically claim the city's 24h slot (conditional DynamoDB write)
+        │    on failure to claim → skip straight to a 429, no Bedrock call
         │  - fetch weather (or date-only fallback) → build prompt → call Bedrock
         │  - returns poem text directly in the API response
         │  - writes nothing to DynamoDB or S3 (ephemeral)

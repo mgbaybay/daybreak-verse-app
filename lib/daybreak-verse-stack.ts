@@ -69,7 +69,7 @@ export class DaybreakVerseStack extends cdk.Stack {
     onDemandFn.addToRolePolicy(
       new iam.PolicyStatement({ actions: ['bedrock:InvokeModel'], resources: [NOVA_MICRO_MODEL_ARN] }),
     );
-    rateLimitTable.grant(onDemandFn, 'dynamodb:GetItem', 'dynamodb:PutItem');
+    rateLimitTable.grant(onDemandFn, 'dynamodb:PutItem');
 
     // --- INFRA-9: API Gateway (HTTP API) fronting Lambda B, throttled ---
     const httpApi = new apigwv2.HttpApi(this, 'OnDemandApi', {

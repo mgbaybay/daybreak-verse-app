@@ -1,5 +1,5 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { findCityById } from '../shared/cities';
 import { fetchWeather } from '../shared/weather';
 import { buildPrompt } from '../shared/prompt';
@@ -40,10 +40,24 @@ export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
   }
 
   const now = Date.now();
-  const existing = await ddb.send(new GetCommand({ TableName: RATE_LIMIT_TABLE_NAME, Key: { cityId } }));
-  const lastGeneratedAt = existing.Item?.lastGeneratedAt as number | undefined;
-  if (typeof lastGeneratedAt === 'number' && now - lastGeneratedAt < RATE_LIMIT_WINDOW_MS) {
-    return jsonResponse(429, { error: `${city.label} already got a poem in the last 24 hours. Try another city, or check back later.` });
+
+  // Atomically claim today's generation slot for this city *before* calling
+  // Bedrock. A plain get-then-put here would let concurrent requests race
+  // past the check together, defeating the point of the cap.
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: RATE_LIMIT_TABLE_NAME,
+        Item: { cityId, lastGeneratedAt: now },
+        ConditionExpression: 'attribute_not_exists(cityId) OR lastGeneratedAt < :cutoff',
+        ExpressionAttributeValues: { ':cutoff': now - RATE_LIMIT_WINDOW_MS },
+      }),
+    );
+  } catch (err) {
+    if (err instanceof ConditionalCheckFailedException) {
+      return jsonResponse(429, { error: `${city.label} already got a poem in the last 24 hours. Try another city, or check back later.` });
+    }
+    throw err;
   }
 
   let poem: string;
@@ -54,8 +68,6 @@ export async function handler(event: HttpApiEvent): Promise<HttpApiResponse> {
   } catch {
     return jsonResponse(502, { error: 'The poem generator is unavailable right now. Please try again shortly.' });
   }
-
-  await ddb.send(new PutCommand({ TableName: RATE_LIMIT_TABLE_NAME, Item: { cityId, lastGeneratedAt: now } }));
 
   return jsonResponse(200, { city: city.label, poem });
 }
