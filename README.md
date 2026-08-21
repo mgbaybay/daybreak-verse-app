@@ -22,8 +22,9 @@ Lambda A — generator (fixed default city: Binangonan, Rizal, PH)
         │  1. fetch weather — Open-Meteo
         │  2. build a prompt (date + weather, fixed 3×4-line form)
         │  3. call Amazon Bedrock (Nova Micro) → poem text
-        │  4. write the record to DynamoDB
-        │  5. fully rebuild index.html + archive.html → S3
+        │  4. fetch a Pixabay photo matching the weather, store it in S3
+        │  5. write the record to DynamoDB
+        │  6. fully rebuild index.html + archive.html → S3
         ▼
 S3 (static site) → CloudFront (HTTPS) → public live URL
 ```
@@ -36,7 +37,7 @@ A visitor picks a city from a dropdown on the site. That calls a separate API Ga
 
 ## AWS services used
 
-Lambda (×2), EventBridge, API Gateway, Amazon Bedrock (Nova Micro), DynamoDB (×2), S3, CloudFront, IAM — all defined as code with AWS CDK (TypeScript), single stack (`DaybreakVerseStack`), deployed to `us-east-1`.
+Lambda (×2), EventBridge, API Gateway, Amazon Bedrock (Nova Micro), DynamoDB (×2), S3, CloudFront, SSM Parameter Store, IAM — all defined as code with AWS CDK (TypeScript), single stack (`DaybreakVerseStack`), deployed to `us-east-1`.
 
 ## Repo structure
 
@@ -57,4 +58,8 @@ npx cdk bootstrap aws://<account-id>/us-east-1
 npx cdk deploy
 ```
 
-Requires an IAM identity with the permissions in [`iam/deploy-policy.json`](./iam/deploy-policy.json) (see [`iam/SETUP.md`](./iam/SETUP.md)) configured via `aws configure`.
+Requires an IAM identity with the permissions in [`iam/deploy-policy.json`](./iam/deploy-policy.json) (see [`iam/SETUP.md`](./iam/SETUP.md)) configured via `aws configure`, plus a free [Pixabay](https://pixabay.com/api/docs/) API key stored in SSM before the first deploy:
+
+```bash
+aws ssm put-parameter --name /daybreak-verse/pixabay-api-key --type String --value "<your key>" --region us-east-1
+```

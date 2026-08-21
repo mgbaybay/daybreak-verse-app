@@ -12,6 +12,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 const NOVA_MICRO_MODEL_ARN = 'arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0';
 
@@ -102,6 +103,10 @@ export class DaybreakVerseStack extends cdk.Stack {
         ARCHIVE_TABLE_NAME: archiveTable.tableName,
         SITE_BUCKET_NAME: siteBucket.bucketName,
         ONDEMAND_API_URL: onDemandApiUrl,
+        // Resolved by CloudFormation at deploy time (a {{resolve:ssm:...}}
+        // dynamic reference) — the plaintext key never appears in the CDK
+        // synth output, this repo, or CDK's own deploy-time AWS calls.
+        PIXABAY_API_KEY: ssm.StringParameter.valueForStringParameter(this, '/daybreak-verse/pixabay-api-key'),
       },
     });
     generatorFn.addToRolePolicy(

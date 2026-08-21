@@ -5,6 +5,7 @@ import { DEFAULT_CITY, CITIES } from '../shared/cities';
 import { fetchWeather, Weather } from '../shared/weather';
 import { buildPrompt, localDateString } from '../shared/prompt';
 import { generatePoem } from '../shared/bedrock';
+import { fetchWeatherImage, extensionForContentType } from '../shared/image';
 import { renderIndexPage, renderArchivePage, ArchiveRecord } from '../shared/templates';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -19,10 +20,11 @@ interface StoredRecord {
   cityLabel: string;
   weather: Weather | null;
   poem: string;
+  imageKey?: string | null;
 }
 
 function toArchiveRecord(item: StoredRecord): ArchiveRecord {
-  return { date: item.date, cityLabel: item.cityLabel, weather: item.weather, poem: item.poem };
+  return { date: item.date, cityLabel: item.cityLabel, weather: item.weather, poem: item.poem, imageKey: item.imageKey ?? null };
 }
 
 async function loadAllRecords(): Promise<ArchiveRecord[]> {
@@ -50,6 +52,18 @@ async function putHtml(key: string, html: string): Promise<void> {
   );
 }
 
+async function putImage(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: SITE_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: contentType,
+      CacheControl: 'max-age=31536000, immutable',
+    }),
+  );
+}
+
 export async function handler(): Promise<void> {
   const now = new Date();
   const date = localDateString(DEFAULT_CITY.timezone, now);
@@ -61,7 +75,25 @@ export async function handler(): Promise<void> {
   // invocation retries twice, and after that this day is silently skipped.
   const poem = await generatePoem(prompt);
 
-  const record: StoredRecord = { date, cityLabel: DEFAULT_CITY.label, weather, poem };
+  // An image is a nice-to-have, not required evidence — any failure here
+  // (including the S3 write itself) just means no image for this day,
+  // same fallback spirit as the weather call. Must not risk the already-
+  // generated poem being lost over an incidental image-store hiccup.
+  let imageKey: string | null = null;
+  if (weather) {
+    try {
+      const image = await fetchWeatherImage(weather.condition);
+      if (image) {
+        const key = `images/${date}.${extensionForContentType(image.contentType)}`;
+        await putImage(key, image.bytes, image.contentType);
+        imageKey = key;
+      }
+    } catch {
+      imageKey = null;
+    }
+  }
+
+  const record: StoredRecord = { date, cityLabel: DEFAULT_CITY.label, weather, poem, imageKey };
   await ddb.send(new PutCommand({ TableName: ARCHIVE_TABLE_NAME, Item: record }));
 
   const allRecords = await loadAllRecords();

@@ -37,7 +37,8 @@ The challenge requires the creative output to be produced **autonomously, with n
 | Failure handling — Bedrock call fails | Rely on Lambda's default async-retry (EventBridge→Lambda invokes async, retries twice with delay); if still failing, skip that day — no placeholder poem, no alert | A placeholder in a "creative agent" demo reads worse than an honest gap; notifications were already ruled out |
 | Failure handling — Open-Meteo call fails | Fall back to date-only theming (no weather) for that day's poem | Smaller, more recoverable failure — shouldn't block poem generation entirely |
 | Notifications | None (no email/SNS) | Website + archive alone is sufficient evidence; keeps scope tight for the deadline |
-| Credential storage (API keys etc.) | **Dropped — no SSM Parameter Store.** Nothing in this architecture needs a stored secret: Open-Meteo needs no key, and Bedrock/DynamoDB/S3 access is via IAM role | Walking through the actual architecture found no secret to store; one less service to wire up |
+| Accompanying image (autonomous path only) | **Pixabay** photo search, queried by the day's weather condition category (not a separate mood-analysis pass); image bytes downloaded once and stored in the site's own S3 bucket under `images/{date}.*`, never hotlinked | Free tier is more than sufficient at once-a-day volume; storing the bytes ourselves keeps the archive permanently browsable instead of depending on a third-party URL staying valid |
+| Credential storage (API keys etc.) | Reintroduced for the Pixabay key only: an SSM `String` parameter (`/daybreak-verse/pixabay-api-key`), injected into Lambda A's environment via a CloudFormation dynamic parameter (`AWS::SSM::Parameter::Value<String>`) resolved at deploy time. Everything else still needs no secret — Open-Meteo needs no key, Bedrock/DynamoDB/S3 access is via IAM role | The original "no secret to store" finding held until this feature needed one. Using CloudFormation's SSM parameter type (rather than `valueFromLookup`) keeps the plaintext key out of the repo and out of `cdk.context.json` at synth time. It does **not** hide the key from the deploy user themselves — `lambda:GetFunctionConfiguration` and `cloudformation:DescribeStacks` (both already granted, for unrelated reasons) can both read it back in plaintext. That's an accepted gap for a free-tier, easily-revocable key owned by the same person who holds the deploy credentials; it would matter for a higher-value secret |
 | IAM scoping — autonomous Lambda | `bedrock:InvokeModel` scoped to the Nova Micro model ARN only (not `bedrock:*`); DynamoDB/S3 actions scoped to the specific table/bucket ARNs; no CloudFront permissions | Least privilege; a bug can't invoke an expensive model or touch unrelated resources |
 | IAM scoping — on-demand Lambda | `bedrock:InvokeModel` scoped to the Nova Micro model ARN only; DynamoDB access scoped only to the small per-city rate-limit table (not the archive table); **no S3 permissions at all** | Ephemeral output means this function never needs to touch the site bucket |
 | Budget stance | Always-Free services for the core (Lambda, EventBridge, S3, DynamoDB, API Gateway); accept small pay-per-use cost for Bedrock model calls; no formal AWS Budgets alert | Per-poem cost is fractions of a cent, guardrails above already bound worst case, and the account is torn down within months — a formal budget alarm isn't worth the setup time under deadline pressure |
@@ -61,8 +62,11 @@ EventBridge (cron(0 22 * * ? *) = 06:00 Asia/Manila daily)
         │     form: 3 stanzas × 4 lines, warm tone, no literal weather stats)
         │  3. call Bedrock — Amazon Nova Micro → poem text
         │     on failure after retries → skip this day, no placeholder
-        │  4. write record — DynamoDB (date, weather, poem, city)
-        │  5. full rebuild — index.html + archive.html → S3
+        │  4. look up + download a Pixabay photo matching the weather
+        │     condition → store it in S3 (on failure → no image, not a
+        │     blocker for the poem itself)
+        │  5. write record — DynamoDB (date, weather, poem, city, image)
+        │  6. full rebuild — index.html + archive.html → S3
         │     (short Cache-Control, no CloudFront invalidation)
         ▼
       S3 (static site bucket)
@@ -92,4 +96,4 @@ API Gateway (HTTP API, usage-plan throttled ~5 req/s / burst 10)
    Displayed in the "Try it yourself" widget on the static site
 ```
 
-AWS services used: **Lambda (×2), EventBridge, API Gateway, Bedrock (Nova Micro), DynamoDB, S3, CloudFront, IAM**. (SSM Parameter Store considered and dropped — no secrets needed.)
+AWS services used: **Lambda (×2), EventBridge, API Gateway, Bedrock (Nova Micro), DynamoDB, S3, CloudFront, SSM Parameter Store, IAM**.

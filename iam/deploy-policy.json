@@ -252,6 +252,18 @@
       ]
     },
     {
+      "Sid": "ProjectSsmParameters",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:DeleteParameter",
+        "ssm:AddTagsToResource"
+      ],
+      "Resource": "arn:aws:ssm:us-east-1:*:parameter/daybreak-verse/*"
+    },
+    {
       "Sid": "BedrockInvoke",
       "Effect": "Allow",
       "Action": "bedrock:InvokeModel",

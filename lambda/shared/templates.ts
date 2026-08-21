@@ -6,6 +6,7 @@ export interface ArchiveRecord {
   cityLabel: string;
   weather: Weather | null;
   poem: string;
+  imageKey?: string | null;
 }
 
 function escapeHtml(input: string): string {
@@ -22,6 +23,13 @@ function poemToHtml(poem: string): string {
     .split('\n')
     .map((line) => (line.trim().length === 0 ? '<br>' : `<p>${escapeHtml(line)}</p>`))
     .join('\n');
+}
+
+function entryImage(record: ArchiveRecord): string {
+  if (!record.imageKey) {
+    return '';
+  }
+  return `<img class="entry-image" src="/${record.imageKey}" alt="A photo evoking the ${escapeHtml(record.weather?.condition ?? 'day’s')} weather in ${escapeHtml(record.cityLabel)}" loading="lazy">`;
 }
 
 function weatherLabel(weather: Weather | null): string {
@@ -56,6 +64,7 @@ const SHARED_STYLES = `
     padding: 0.2rem 0.75rem;
     font-size: 0.85rem;
   }
+  .entry-image { display: block; width: 100%; max-height: 320px; object-fit: cover; border-radius: 8px; margin-bottom: 1.25rem; }
   .poem p { margin: 0; }
   .poem p:nth-of-type(4n+1) { margin-top: 1.1em; }
   .entry { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid #e3dccf; }
@@ -138,6 +147,7 @@ export function renderIndexPage(latest: ArchiveRecord | null, apiUrl: string, ci
     <div class="entry">
       <h2>${escapeHtml(latest.date)} &mdash; ${escapeHtml(latest.cityLabel)}</h2>
       <div class="meta">${weatherLabel(latest.weather)}</div>
+      ${entryImage(latest)}
       <div class="poem">
         ${poemToHtml(latest.poem)}
       </div>
@@ -159,6 +169,7 @@ export function renderArchivePage(records: ArchiveRecord[]): string {
     <div class="entry">
       <h2>${escapeHtml(r.date)} &mdash; ${escapeHtml(r.cityLabel)}</h2>
       <div class="meta">${weatherLabel(r.weather)}</div>
+      ${entryImage(r)}
       <div class="poem">
         ${poemToHtml(r.poem)}
       </div>
