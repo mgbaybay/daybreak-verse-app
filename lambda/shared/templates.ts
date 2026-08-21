@@ -1,5 +1,5 @@
 import { City } from './cities';
-import { Weather } from './weather';
+import { Weather, conditionEmoji } from './weather';
 
 export interface ArchiveRecord {
   date: string; // YYYY-MM-DD, Asia/Manila local date
@@ -25,7 +25,11 @@ function poemToHtml(poem: string): string {
 }
 
 function weatherLabel(weather: Weather | null): string {
-  return weather ? `${Math.round(weather.tempC)}&deg;C, ${escapeHtml(weather.condition)}` : 'weather unavailable today';
+  if (!weather) {
+    return '<span class="weather-badge">weather unavailable today</span>';
+  }
+  const emoji = conditionEmoji(weather.condition);
+  return `<span class="weather-badge">${emoji} ${Math.round(weather.tempC)}&deg;C &middot; ${escapeHtml(weather.condition)}</span>`;
 }
 
 const SHARED_STYLES = `
@@ -43,7 +47,15 @@ const SHARED_STYLES = `
   header h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
   header nav a { color: #7a5230; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
   header nav a:hover { text-decoration: underline; }
-  .meta { color: #6b6258; font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .meta { margin-bottom: 1.5rem; }
+  .weather-badge {
+    display: inline-block;
+    background: #efe6d4;
+    color: #6b5a3f;
+    border-radius: 999px;
+    padding: 0.2rem 0.75rem;
+    font-size: 0.85rem;
+  }
   .poem p { margin: 0; }
   .poem p:nth-of-type(4n+1) { margin-top: 1.1em; }
   .entry { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid #e3dccf; }

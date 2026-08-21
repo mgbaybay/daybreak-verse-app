@@ -31,6 +31,35 @@ function describeWeatherCode(code: number): string {
   return WMO_CONDITIONS[code] ?? 'changeable skies';
 }
 
+const CONDITION_EMOJI: Record<string, string> = {
+  'clear sky': '☀️',
+  'mostly clear': '🌤️',
+  'partly cloudy': '⛅',
+  'overcast': '☁️',
+  fog: '🌫️',
+  'freezing fog': '🌫️',
+  'light drizzle': '🌦️',
+  drizzle: '🌦️',
+  'dense drizzle': '🌧️',
+  'light rain': '🌧️',
+  rain: '🌧️',
+  'heavy rain': '🌧️',
+  'light snow': '🌨️',
+  snow: '❄️',
+  'heavy snow': '❄️',
+  'light rain showers': '🌦️',
+  'rain showers': '🌧️',
+  'violent rain showers': '⛈️',
+  thunderstorm: '⛈️',
+  'thunderstorm with hail': '⛈️',
+  'severe thunderstorm with hail': '⛈️',
+  'changeable skies': '🌡️',
+};
+
+export function conditionEmoji(condition: string): string {
+  return CONDITION_EMOJI[condition] ?? '🌡️';
+}
+
 /**
  * Fetches current weather for a coordinate from Open-Meteo. Returns null on any
  * failure (network error, non-200, malformed body) rather than throwing, so
