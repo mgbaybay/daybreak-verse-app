@@ -4,7 +4,7 @@ An always-on creative agent built for AWS's "Weekend Creative Agent Challenge." 
 
 **Live site**: https://d12kenezsixi83.cloudfront.net _(content appears after the first successful autonomous run — see Status)_
 
-Full design rationale: [`DESIGN.md`](./DESIGN.md). Build backlog: [`TASKS.md`](./TASKS.md).
+Full design rationale: [`DESIGN.md`](./DESIGN.md).
 
 ## Status
 
@@ -47,7 +47,6 @@ lambda/generator/ Lambda A — the autonomous handler
 lambda/ondemand/  Lambda B — the on-demand handler
 iam/              Least-privilege IAM policy + setup notes for the human deployer identity
 DESIGN.md         Full design rationale and decisions
-TASKS.md          Build backlog, user stories, dependencies
 ```
 
 ## Running it yourself
@@ -59,7 +58,3 @@ npx cdk deploy
 ```
 
 Requires an IAM identity with the permissions in [`iam/deploy-policy.json`](./iam/deploy-policy.json) (see [`iam/SETUP.md`](./iam/SETUP.md)) configured via `aws configure`.
-
-## What this project deliberately doesn't do
-
-See the "Deferred / explicitly out of scope" section of [`DESIGN.md`](./DESIGN.md) — geolocation, a per-city on-demand archive, and a custom domain were all cut to fit the 3-day build window.

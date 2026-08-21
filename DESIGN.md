@@ -2,13 +2,6 @@
 
 Settled design decisions for the "Weekend Creative Agent Challenge" submission. First captured via grilling on 2026-08-21, then revised via a second grilling pass the same day that added city selection and an on-demand generation path. This is the reference doc for implementation — nothing here should be silently re-decided; if reality forces a change, update this file and note why.
 
-## Challenge constraints (given, not decided)
-
-- **Article deadline**: must be published between Aug 21, 2026 12:00 AM PT and **Aug 24, 2026 1:00 PM PT**. Today is Aug 21 — roughly 3 days.
-- **Application requirements**: always-on agent producing creative output autonomously (scheduled or event-driven, no manual trigger); evidence of that output existing; deployed using at least one AWS service (Free Tier encouraged).
-- **Article requirements** (separate from the app): min. 500 words, title must contain `Weekend Creative Agent Challenge: Daybreak Verse`, tagged `agents`, and must cover: Vision & What It Does, How You Built It, AWS Services Used / Architecture Overview, What You Learned, Link to App or Repo (must be public/working at evaluation time or disqualified).
-- **Submission deliverables**: public GitHub repo, README, demo video, live URL, plus the dev.to article.
-
 ## Core compliance decision: autonomous path vs. on-demand path
 
 The challenge requires the creative output to be produced **autonomously, with no manual trigger**. Adding "let the user pick a city" created a real conflict with that: if picking a city is what generates the poem, the output isn't autonomous.
@@ -99,28 +92,3 @@ API Gateway (HTTP API, usage-plan throttled ~5 req/s / burst 10)
 ```
 
 AWS services used: **Lambda (×2), EventBridge, API Gateway, Bedrock (Nova Micro), DynamoDB, S3, CloudFront, IAM**. (SSM Parameter Store considered and dropped — no secrets needed.)
-
-## Deliverables checklist
-
-- [ ] Public GitHub repo (`daybreak-verse`) with README (setup, architecture, screenshot)
-- [ ] Working live URL (CloudFront domain)
-- [ ] Demo video (~60–90s, unlisted YouTube), embedded in both README and article — shot list to be provided once the site is live; user records it themselves
-- [ ] dev.to article: title `Weekend Creative Agent Challenge: Daybreak Verse`, tag `agents`, ≥500 words, covering Vision & What It Does / How You Built It / AWS Services Used & Architecture / What You Learned / Link to App or Repo
-- [ ] All of the above live and public **before Aug 24, 2026 1:00 PM PT**
-
-## Sequencing (given the 3-day deadline)
-
-1. Scaffold CDK app + shared Lambda code (weather fetch, prompt build, Bedrock call) used by both Lambda A (autonomous) and Lambda B (on-demand)
-2. Bootstrap AWS account / IAM user, deploy stack (EventBridge, Lambda A, DynamoDB, S3, CloudFront, API Gateway, Lambda B)
-3. Verify one real scheduled run produces a poem end-to-end for Binangonan (or trigger manually once for verification — the deployed mechanism itself must still be schedule-driven)
-4. Build/deploy the static frontend (today + archive + on-demand widget with curated city list) behind CloudFront
-5. Verify the on-demand path end-to-end (throttling + per-city cap behave as expected)
-6. Write README, push public repo
-7. Record demo video once live URL is stable
-8. Draft and publish dev.to article (last, since it references the finished architecture and "what you learned")
-
-## Deferred / explicitly out of scope for the 3-day build
-
-- Persisting on-demand results into a browsable per-city archive (would need a `(city, date)` DynamoDB schema and per-city partial S3 rebuilds) — noted as a stretch goal only if time remains after baseline scope is done.
-- Auto-detecting the visitor's location (browser Geolocation API or IP-based) — deferred in favor of a manual curated dropdown.
-- Custom domain / ACM certificate — deliverable only requires a working CloudFront domain URL.
