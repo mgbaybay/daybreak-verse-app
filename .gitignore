@@ -6,3 +6,14 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# CDK context cache — could hold resolved lookup values; not used by this
+# stack (SSM values are resolved as CloudFormation dynamic references, not
+# via valueFromLookup), but ignored defensively in case that ever changes
+cdk.context.json
+
+# secrets / local env overrides — never commit these
+.env
+.env.*
+*.pem
+*.key
